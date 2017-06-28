@@ -29,9 +29,11 @@ public class BalkDownloader {
     private static int startOn = 0;
 
     public static void main(String[] args) {
-        startOn = Integer.parseInt(args[0]);
-        System.out.println(startOn);
-        new BalkDownloader().oneClassicalDotComDownloader();
+//        startOn = Integer.parseInt(args[0]);
+//        System.out.println(startOn);
+        new BalkDownloader().pianoSocietyDownloader();
+
+//        new BalkDownloader().test();
     }
 
     public void pianoParadiseDownloader(){
@@ -184,6 +186,163 @@ public class BalkDownloader {
             }
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    //1001pianos
+    private void oneOOOnePianosDownloader(){
+        String rootURL = "http://www.1001pianos.com/audio/by/artist/";
+
+        int count = 0;
+
+        try {
+            String rawComposersHTML = new Scanner(new URL(rootURL).openStream(), "UTF-8").useDelimiter("\\A").next();
+
+            String composerRegex = Pattern.quote("<a href=\"/audio/by/artist/") + "(.*?)" + Pattern.quote("\">");
+            Pattern composerPattern = Pattern.compile(composerRegex);
+            Matcher composerMatcher = composerPattern.matcher(rawComposersHTML);
+
+            while (composerMatcher.find()) {
+                String composerName = composerMatcher.group(1).trim();
+                if (composerName.equals("")) continue;
+                String formatedComposerName = composerName.split("_")[composerName.split("_").length - 1];
+                formatedComposerName = formatedComposerName.substring(0, 1).toUpperCase() + formatedComposerName.substring(1)+" (piano)";
+
+                File theDir = new File(formatedComposerName);
+                if (!theDir.exists()) {
+                    try {
+                        theDir.mkdir();
+                    } catch (SecurityException se) {
+                    }
+                }
+
+                String rawSongsHTML = new Scanner(new URL(rootURL + composerName).openStream(), "UTF-8").useDelimiter("\\A").next();
+
+                String songsRegex = Pattern.quote("<a href=\"") + "(.*?)" + Pattern.quote(".mp3");
+                Pattern songsPattern = Pattern.compile(songsRegex);
+                Matcher songsMatcher = songsPattern.matcher(rawSongsHTML);
+
+                while (songsMatcher.find()) {
+                    String songURL = songsMatcher.group(1) + ".mp3";
+                    String songName = songURL.split("/")[songURL.split("/").length - 1].replace("_", " ").replace("+"," ").replace("%23","#").replace("%2523","#").replace("%28","(").replace("%29",")").replace("%27","'");
+
+                    count++;
+                    if (count < startOn) {
+                        System.out.println("Skipping #" + count);
+                        continue;
+                    }
+
+                    try {
+                        URL website = new URL(songURL);
+                        ReadableByteChannel rbc = Channels.newChannel(website.openStream());
+                        FileOutputStream fos = new FileOutputStream(formatedComposerName + "/" + songName);
+                        fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
+                        System.out.println("#" + count + " " + songName.substring(0,songName.length()-4));
+                    } catch (Exception e) {
+                        System.out.println("[!BAD!]#" + count + " " + songName.substring(0,songName.length()-4));
+                    }
+                }
+            }
+        }catch (Exception e){
+
+        }
+    }
+
+    //http://www.pianosociety.com/pages/composers/
+    private void pianoSocietyDownloader(){
+        String rootURL = "http://www.pianosociety.com/pages/";
+
+        int count = 0;
+
+        try {
+            String rawComposersHTML = new Scanner(new URL(rootURL+"composers").openStream(), "UTF-8").useDelimiter("\\A").next();
+
+            System.out.println(rawComposersHTML);
+
+            String composerRegex = Pattern.quote("<a href=\"pages/") + "(.*?)" + Pattern.quote("/\">");
+            Pattern composerPattern = Pattern.compile(composerRegex);
+            Matcher composerMatcher = composerPattern.matcher(rawComposersHTML);
+
+            //AVOID USELESS PAGES
+            for (int i = 0; i < 4; i++) {
+                composerMatcher.find();
+                composerMatcher.group(1);
+            }
+
+
+
+            //because there are duplicates THIS SHOULD BE FIXED TO AVOID HARD CODING
+            for(int i = 0; i < 180; i++){
+                composerMatcher.find();
+                String composerName = composerMatcher.group(1);
+                String formatedComposerName = composerName.substring(0, 1).toUpperCase()+composerName.substring(1);
+
+                File theDir = new File("D:\\ComputerScience\\JavaProjects\\BulkDownloader\\out\\artifacts\\BalkDownloader\\"+formatedComposerName);
+                if (!theDir.exists()) {
+                    try {
+                        theDir.mkdir();
+                    } catch (SecurityException se) {
+                    }
+                }
+
+                String rawAlbumsHTML = new Scanner(new URL(rootURL+composerName).openStream(), "UTF-8").useDelimiter("\\A").next();
+
+                String albumsRegex = Pattern.quote("class=\"childNode\"><a href=\"pages") + "(.*?)" + Pattern.quote("/\">");
+                Pattern albumsPattern = Pattern.compile(albumsRegex);
+                Matcher albumsMatcher = albumsPattern.matcher(rawAlbumsHTML);
+
+                ArrayList<String> visited = new ArrayList<>();
+
+                while (albumsMatcher.find()){
+                    String rawAlbum = albumsMatcher.group(1);
+                    if (visited.contains(rawAlbum))continue;
+                    else visited.add(rawAlbum);
+
+                    String rawSongHTML = new Scanner(new URL(rootURL+rawAlbum).openStream(), "UTF-8").useDelimiter("\\A").next();
+                    String songRegex = Pattern.quote("<a href=\"") + "(.*?)" + Pattern.quote(".mp3\">");
+                    Pattern songPattern = Pattern.compile(songRegex);
+                    Matcher songMatcher = songPattern.matcher(rawSongHTML);
+
+                    String songNameRegex = Pattern.quote(".mp3\">") + "(.*?)" + Pattern.quote("</a>");
+                    Pattern songNamePattern = Pattern.compile(songNameRegex);
+                    Matcher songNameMatcher = songNamePattern.matcher(rawSongHTML);
+
+                    while (songMatcher.find()){
+                        String songURL = songMatcher.group(1).trim()+".mp3";
+                        songNameMatcher.find();
+                        String songName = songNameMatcher.group(1).trim()+".mp3";
+
+                        count++;
+                        if (count < startOn) {
+                            System.out.println("Skipping #" + count);
+                            continue;
+                        }
+
+                        try {
+                            URL website = new URL(songURL);
+                            ReadableByteChannel rbc = Channels.newChannel(website.openStream());
+                            FileOutputStream fos = new FileOutputStream("D:\\ComputerScience\\JavaProjects\\BulkDownloader\\out\\artifacts\\BalkDownloader\\"+formatedComposerName + "\\" + songName);
+                            fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
+                            System.out.println("#" + count + " " + songName.substring(0,songName.length()-4));
+                        } catch (Exception e) {
+                            System.out.println("[!BAD!]#" + count + " " + songName.substring(0,songName.length()-4));
+                        }
+                    }
+                }
+            }
+        }catch (Exception e){
+
+        }
+    }
+
+    private void test() {
+        try {
+            URL website = new URL("http://www.pianosociety.com/protected/beethoven-woo13-05-richards.mp3");
+            ReadableByteChannel rbc = Channels.newChannel(website.openStream());
+            FileOutputStream fos = new FileOutputStream("D:\\ComputerScience\\JavaProjects\\BulkDownloader\\out\\artifacts\\BalkDownloader\\test.mp3");
+            fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
+        } catch (Exception e) {
+
         }
     }
 }
